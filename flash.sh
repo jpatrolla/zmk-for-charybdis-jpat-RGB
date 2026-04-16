@@ -10,9 +10,6 @@ set -euo pipefail
 #   ./flash.sh --reset left # Reset + flash left side only
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ZMK_DIR="$SCRIPT_DIR/.zmk"
-ZMK_REPO="https://github.com/zmkfirmware/zmk.git"
-ZMK_BRANCH="v0.3.0"
 BUILD_DIR="$SCRIPT_DIR/build"
 VOLUME_NAME="NICENANO"
 MOUNT_POINT="/Volumes/$VOLUME_NAME"
@@ -66,28 +63,25 @@ fi
 # ── Environment ────────────────────────────────────────────────
 export ZEPHYR_SDK_INSTALL_DIR="$ZEPHYR_SDK_DIR"
 
-# ── Clone/update ZMK ──────────────────────────────────────────
-if [[ ! -d "$ZMK_DIR" ]]; then
-    echo "Cloning ZMK ($ZMK_BRANCH) into $ZMK_DIR..."
-    git clone --branch "$ZMK_BRANCH" --depth 1 "$ZMK_REPO" "$ZMK_DIR"
-    echo "Running west init/update (this takes a few minutes the first time)..."
-    cd "$ZMK_DIR"
-    west init -l app/
-    west update
+# ── Initialize west workspace from config/west.yml ───────────
+if [[ ! -d "$SCRIPT_DIR/.west" ]]; then
+    echo "Initializing west workspace (this takes a few minutes the first time)..."
     cd "$SCRIPT_DIR"
+    west init -l config
+    west update
 else
-    echo "ZMK already at $ZMK_DIR"
+    echo "West workspace already initialized"
 fi
 
 # Activate Zephyr environment
-source "$ZMK_DIR/zephyr/zephyr-env.sh"
+source "$SCRIPT_DIR/zephyr/zephyr-env.sh"
 
 # ── Build functions ────────────────────────────────────────────
 build_side() {
     local side="$1"
     echo "Building $side firmware..."
     west build -d "$BUILD_DIR/$side" -b nice_nano_v2 \
-        -s "$ZMK_DIR/app" -p auto \
+        -s "$SCRIPT_DIR/zmk/app" -p auto \
         -- -DSHIELD="charybdis_$side" \
            -DZMK_CONFIG="$SCRIPT_DIR/config"
 }
@@ -96,7 +90,7 @@ build_reset() {
     if [[ ! -f "$RESET_FW" ]]; then
         echo "Building settings_reset firmware..."
         west build -d "$BUILD_DIR/reset" -b nice_nano_v2 \
-            -s "$ZMK_DIR/app" -p auto \
+            -s "$SCRIPT_DIR/zmk/app" -p auto \
             -- -DSHIELD="settings_reset" \
                -DZMK_CONFIG="$SCRIPT_DIR/config"
     fi
@@ -127,9 +121,12 @@ flash_uf2() {
     fi
 
     echo "    Copying $(basename "$uf2") ($label)..."
-    cp "$uf2" "$MOUNT_POINT/"
+    # Use dd for more reliable copying — cp can fail on macOS when the
+    # bootloader volume disappears mid-write as the board reboots.
+    dd if="$uf2" of="$MOUNT_POINT/zmk.uf2" bs=4096 2>/dev/null || true
 
     # Wait for the volume to unmount (board reboots after flash)
+    sleep 1
     while [[ -d "$MOUNT_POINT" ]]; do
         sleep 0.5
     done

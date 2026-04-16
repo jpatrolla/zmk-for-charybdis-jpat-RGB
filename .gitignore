@@ -1,4 +1,13 @@
-.zmk/
+# West-managed dependencies
+.west/
+zmk/
+zephyr/
+modules/
+zmk-pmw3610-driver/
+
+# Build output
 build/
 firmware/
+
+# Old build script (replaced by flash.sh)
 build_local.sh
