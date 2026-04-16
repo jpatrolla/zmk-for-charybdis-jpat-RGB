@@ -12,7 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ZMK_DIR="$SCRIPT_DIR/.zmk"
 ZMK_REPO="https://github.com/zmkfirmware/zmk.git"
-ZMK_BRANCH="main"
+ZMK_BRANCH="v0.3.0"
 BUILD_DIR="$SCRIPT_DIR/build"
 VOLUME_NAME="NICENANO"
 MOUNT_POINT="/Volumes/$VOLUME_NAME"
@@ -86,7 +86,7 @@ source "$ZMK_DIR/zephyr/zephyr-env.sh"
 build_side() {
     local side="$1"
     echo "Building $side firmware..."
-    west build -d "$BUILD_DIR/$side" -b nice_nano/nrf52840/zmk \
+    west build -d "$BUILD_DIR/$side" -b nice_nano_v2 \
         -s "$ZMK_DIR/app" -p auto \
         -- -DSHIELD="charybdis_$side" \
            -DZMK_CONFIG="$SCRIPT_DIR/config"
@@ -95,7 +95,7 @@ build_side() {
 build_reset() {
     if [[ ! -f "$RESET_FW" ]]; then
         echo "Building settings_reset firmware..."
-        west build -d "$BUILD_DIR/reset" -b nice_nano/nrf52840/zmk \
+        west build -d "$BUILD_DIR/reset" -b nice_nano_v2 \
             -s "$ZMK_DIR/app" -p auto \
             -- -DSHIELD="settings_reset" \
                -DZMK_CONFIG="$SCRIPT_DIR/config"
